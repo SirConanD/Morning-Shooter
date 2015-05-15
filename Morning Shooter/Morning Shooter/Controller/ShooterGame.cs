@@ -131,19 +131,6 @@ namespace Morning_Shooter.Controller
             //Set player's score to zero
             score = 0;
 
-            // The sound that is played when a laser is fired
-            SoundEffect laserSound;
-
-            // The sound used when the player or an enemy dies
-            SoundEffect explosionSound;
-
-            // The music played during gameplay
-            Song gameplayMusic;
-
-            //Number that holds the player score
-            int score;
-            // The font used to display UI elements
-            SpriteFont font;
         }
 
         private void PlayMusic(Song song)
@@ -185,26 +172,6 @@ namespace Morning_Shooter.Controller
             + GraphicsDevice.Viewport.TitleSafeArea.Height / 2);
             player.Initialize(playerAnimation, playerPosition);
 
-            bgLayer1 = new Parallaxingbackground();
-            bgLayer2 = new Parallaxingbackground();
-
-            // Enemies
-            Texture2D enemyTexture;
-            List<Enemy> enemies;
-
-            // The rate at which the enemies appear
-            TimeSpan enemySpawnTime;
-            TimeSpan previousSpawnTime;
-
-            // A random number generator
-            Random random;
-
-            Texture2D projectileTexture;
-            List<Projectile> projectiles;
-
-            // The rate of fire of the player laser
-            TimeSpan fireTime;
-            TimeSpan previousFireTime;
 
             enemyTexture = Content.Load<Texture2D>("Images/mineAnimation");
 
@@ -326,29 +293,29 @@ namespace Morning_Shooter.Controller
                     if (player.Health <= 0)
                         player.Active = false;
                 }
-                // Projectile vs Enemy Collision
-                for (int i = 0; i < projectiles.Count; i++)
+               
+            }
+            // Projectile vs Enemy Collision
+            for (int i = 0; i < projectiles.Count; i++)
+            {
+                for (int j = 0; j < enemies.Count; j++)
                 {
-                    for (int j = 0; j < enemies.Count; j++)
+                    // Create the rectangles we need to determine if we collided with each other
+                    rectangle1 = new Rectangle((int)projectiles[i].Position.X -
+                    projectiles[i].Width / 2, (int)projectiles[i].Position.Y -
+                    projectiles[i].Height / 2, projectiles[i].Width, projectiles[i].Height);
+
+                    rectangle2 = new Rectangle((int)enemies[j].Position.X - enemies[j].Width / 2,
+                    (int)enemies[j].Position.Y - enemies[j].Height / 2,
+                    enemies[j].Width, enemies[j].Height);
+
+                    // Determine if the two objects collided with each other
+                    if (rectangle1.Intersects(rectangle2))
                     {
-                        // Create the rectangles we need to determine if we collided with each other
-                        rectangle1 = new Rectangle((int)projectiles[i].Position.X -
-                        projectiles[i].Width / 2, (int)projectiles[i].Position.Y -
-                        projectiles[i].Height / 2, projectiles[i].Width, projectiles[i].Height);
-
-                        rectangle2 = new Rectangle((int)enemies[j].Position.X - enemies[j].Width / 2,
-                        (int)enemies[j].Position.Y - enemies[j].Height / 2,
-                        enemies[j].Width, enemies[j].Height);
-
-                        // Determine if the two objects collided with each other
-                        if (rectangle1.Intersects(rectangle2))
-                        {
-                            enemies[j].Health -= projectiles[i].Damage;
-                            projectiles[i].Active = false;
-                        }
+                        enemies[j].Health -= projectiles[i].Damage;
+                        projectiles[i].Active = false;
                     }
                 }
-
             }
         }
 
@@ -531,9 +498,9 @@ namespace Morning_Shooter.Controller
             }
 
             // Draw the score
-            spriteBatch.DrawString(font, "Fonts/score: " + score, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White);
+            spriteBatch.DrawString(font, "score: " + score, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White);
             // Draw the player health
-            spriteBatch.DrawString(font, "Fonts/health: " + player.Health, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y + 30), Color.White);
+            spriteBatch.DrawString(font, "health: " + player.Health, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y + 30), Color.White);
 
             // Draw the Player
             player.Draw(spriteBatch);
