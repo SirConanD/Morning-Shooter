@@ -16,6 +16,7 @@ namespace Morning_Shooter.View
 
         // The speed which the background is moving
         int speed;
+
         public void Initialize(ContentManager content, String texturePath, int screenWidth, int speed)
         {
             // Load the background texture we will be using

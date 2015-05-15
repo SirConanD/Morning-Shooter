@@ -18,6 +18,8 @@ namespace Morning_Shooter.Controller
     /// </summary>
     public class ShooterGame : Microsoft.Xna.Framework.Game
     {
+
+        #region Decleration Section
         private GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
 
@@ -46,12 +48,39 @@ namespace Morning_Shooter.Controller
         Texture2D enemyTexture;
         List<Enemy> enemies;
 
+        List<Projectile> projectiles;
+
         // The rate at which the enemies appear
         TimeSpan enemySpawnTime;
         TimeSpan previousSpawnTime;
 
+        TimeSpan fireTime;
+
+        //Number that holds the player score
+        int score;
+
+        // The font used to display UI elements
+        SpriteFont font;
+
+        Texture2D projectileTexture;
+
+        TimeSpan previousFireTime;
+
+        Texture2D explosionTexture;
+        List<Animation> explosions;
+
+        // The sound that is played when a laser is fired
+        SoundEffect laserSound;
+
+        // The sound used when the player or an enemy dies
+        SoundEffect explosionSound;
+
+        // The music played during gameplay
+        Song gameplayMusic;
+
         // A random number generator
         Random random;
+        #endregion
 
         public ShooterGame()
         {
@@ -96,6 +125,40 @@ namespace Morning_Shooter.Controller
 
             // Set the laser to fire every quarter second
             fireTime = TimeSpan.FromSeconds(.15f);
+
+            explosions = new List<Animation>();
+
+            //Set player's score to zero
+            score = 0;
+
+            // The sound that is played when a laser is fired
+            SoundEffect laserSound;
+
+            // The sound used when the player or an enemy dies
+            SoundEffect explosionSound;
+
+            // The music played during gameplay
+            Song gameplayMusic;
+
+            //Number that holds the player score
+            int score;
+            // The font used to display UI elements
+            SpriteFont font;
+        }
+
+        private void PlayMusic(Song song)
+        {
+            // Due to the way the MediaPlayer plays music,
+            // we have to catch the exception. Music will play when the game is not tethered
+            try
+            {
+                // Play the music
+                MediaPlayer.Play(song);
+
+                // Loop the currently playing song
+                MediaPlayer.IsRepeating = true;
+            }
+            catch { }
         }
 
         /// <summary>
@@ -110,7 +173,6 @@ namespace Morning_Shooter.Controller
             // Load the parallaxing background
             bgLayer1.Initialize(Content, "Images/bgLayer1", GraphicsDevice.Viewport.Width, -1);
             bgLayer2.Initialize(Content, "Images/bgLayer2", GraphicsDevice.Viewport.Width, -2);
-
             
             mainBackground = Content.Load<Texture2D>("Images/mainbackground");
 
@@ -139,16 +201,29 @@ namespace Morning_Shooter.Controller
 
             Texture2D projectileTexture;
             List<Projectile> projectiles;
-            projectileTexture = Content.Load<Texture2D>("Images/laser");
 
             // The rate of fire of the player laser
             TimeSpan fireTime;
             TimeSpan previousFireTime;
 
             enemyTexture = Content.Load<Texture2D>("Images/mineAnimation");
-            // TODO: use this.Content to load your game content here
 
-               
+            projectileTexture = Content.Load<Texture2D>("Images/laser");
+
+            explosionTexture = Content.Load<Texture2D>("Images/explosion");
+
+            // Load the music
+            gameplayMusic = Content.Load<Song>("sound/gameMusic");
+
+            // Load the laser and explosion sound effect
+            laserSound = Content.Load<SoundEffect>("sound/laserFire");
+            explosionSound = Content.Load<SoundEffect>("sound/explosion");
+
+            // Load the score font
+            font = Content.Load<SpriteFont>("Fonts/gameFont");
+
+            // Start the music right away
+            PlayMusic(gameplayMusic);
         }
 
         /// <summary>
@@ -160,7 +235,12 @@ namespace Morning_Shooter.Controller
                 
         }
 
-        
+        private void AddExplosion(Vector2 position)
+        {
+            Animation explosion = new Animation();
+            explosion.Initialize(explosionTexture, position, 134, 134, 12, 45, Color.White, 1f, false);
+            explosions.Add(explosion);
+        }
 
         /// <summary>
         /// Allows the game to run logic such as updating the world,
@@ -184,16 +264,29 @@ namespace Morning_Shooter.Controller
             currentKeyboardState = Keyboard.GetState();
             currentGamePadState = GamePad.GetState(PlayerIndex.One);
 
-            // Update the enemies
-            UpdateEnemies(gameTime);
-
             // Update the collision
             UpdateCollision();
 
             //Update the player
             UpdatePlayer(gameTime);
 
+            // Update the enemies
+            UpdateEnemies(gameTime);
+
+            // Update the projectiles
+            UpdateProjectiles();
+
+            // Update the explosions
+            UpdateExplosions(gameTime);
+
             base.Update(gameTime);
+        }
+
+        private void AddProjectile(Vector2 position)
+        {
+            Projectile projectile = new Projectile();
+            projectile.Initialize(GraphicsDevice.Viewport, projectileTexture, position);
+            projectiles.Add(projectile);
         }
 
         private void UpdateCollision()
@@ -232,6 +325,28 @@ namespace Morning_Shooter.Controller
                     // If the player health is less than zero we died
                     if (player.Health <= 0)
                         player.Active = false;
+                }
+                // Projectile vs Enemy Collision
+                for (int i = 0; i < projectiles.Count; i++)
+                {
+                    for (int j = 0; j < enemies.Count; j++)
+                    {
+                        // Create the rectangles we need to determine if we collided with each other
+                        rectangle1 = new Rectangle((int)projectiles[i].Position.X -
+                        projectiles[i].Width / 2, (int)projectiles[i].Position.Y -
+                        projectiles[i].Height / 2, projectiles[i].Width, projectiles[i].Height);
+
+                        rectangle2 = new Rectangle((int)enemies[j].Position.X - enemies[j].Width / 2,
+                        (int)enemies[j].Position.Y - enemies[j].Height / 2,
+                        enemies[j].Width, enemies[j].Height);
+
+                        // Determine if the two objects collided with each other
+                        if (rectangle1.Intersects(rectangle2))
+                        {
+                            enemies[j].Health -= projectiles[i].Damage;
+                            projectiles[i].Active = false;
+                        }
+                    }
                 }
 
             }
@@ -274,8 +389,109 @@ namespace Morning_Shooter.Controller
             // Update the parallaxing background
             bgLayer1.Update();
             bgLayer2.Update();
+
+            // Fire only every interval we set as the fireTime
+            if (gameTime.TotalGameTime - previousFireTime > fireTime)
+            {
+                // Reset our current time
+                previousFireTime = gameTime.TotalGameTime;
+
+                // Add the projectile, but add it to the front and center of the player
+                AddProjectile(player.Position + new Vector2(player.Width / 2, 0));
+
+                // Play the laser sound
+                laserSound.Play();
+            }
+
+            // reset score if player health goes to zero
+            if (player.Health <= 0)
+            {
+                player.Health = 100;
+                score = 0;
+            }
         }
 
+        private void AddEnemy()
+        {
+            // Create the animation object
+            Animation enemyAnimation = new Animation();
+
+            // Initialize the animation with the correct animation information
+            enemyAnimation.Initialize(enemyTexture, Vector2.Zero, 47, 61, 8, 30, Color.White, 1f, true);
+
+            // Randomly generate the position of the enemy
+            Vector2 position = new Vector2(GraphicsDevice.Viewport.Width + enemyTexture.Width / 2, random.Next(100, GraphicsDevice.Viewport.Height - 100));
+
+            // Create an enemy
+            Enemy enemy = new Enemy();
+
+            // Initialize the enemy
+            enemy.Initialize(enemyAnimation, position);
+
+            // Add the enemy to the active enemies list
+            enemies.Add(enemy);
+        }
+
+        private void UpdateEnemies(GameTime gameTime)
+        {
+            // Spawn a new enemy enemy every 1.5 seconds
+            if (gameTime.TotalGameTime - previousSpawnTime > enemySpawnTime)
+            {
+                previousSpawnTime = gameTime.TotalGameTime;
+
+                // Add an Enemy
+                AddEnemy();
+            }
+
+            // Update the Enemies
+            for (int i = enemies.Count - 1; i >= 0; i--)
+            {
+                enemies[i].Update(gameTime);
+
+                if (enemies[i].Active == false)
+                {
+                    // If not active and health <= 0
+                    if (enemies[i].Health <= 0)
+                    {
+                        // Add an explosion
+                        AddExplosion(enemies[i].Position);
+
+                        // Play the explosion sound
+                        explosionSound.Play();
+
+                        //Add to the player's score
+                        score += enemies[i].Value;
+                    }
+                    enemies.RemoveAt(i);
+                }
+            }
+        }
+
+        private void UpdateProjectiles()
+        {
+            // Update the Projectiles
+            for (int i = projectiles.Count - 1; i >= 0; i--)
+            {
+                projectiles[i].Update();
+
+                if (projectiles[i].Active == false)
+                {
+                    projectiles.RemoveAt(i);
+                }
+            }
+        }
+
+        private void UpdateExplosions(GameTime gameTime)
+        {
+            for (int i = explosions.Count - 1; i >= 0; i--)
+            {
+                explosions[i].Update(gameTime);
+                if (explosions[i].Active == false)
+                {
+                    explosions.RemoveAt(i);
+                }
+            }
+        }
 
         /// <summary>
         /// This is called when the game should draw itself.
@@ -295,6 +511,29 @@ namespace Morning_Shooter.Controller
             // Draw the moving background
             bgLayer1.Draw(spriteBatch);
             bgLayer2.Draw(spriteBatch);
+
+            // Draw the Enemies
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                enemies[i].Draw(spriteBatch);
+            }
+
+            // Draw the Projectiles
+            for (int i = 0; i < projectiles.Count; i++)
+            {
+                projectiles[i].Draw(spriteBatch);
+            }
+
+            // Draw the explosions
+            for (int i = 0; i < explosions.Count; i++)
+            {
+                explosions[i].Draw(spriteBatch);
+            }
+
+            // Draw the score
+            spriteBatch.DrawString(font, "Fonts/score: " + score, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White);
+            // Draw the player health
+            spriteBatch.DrawString(font, "Fonts/health: " + player.Health, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y + 30), Color.White);
 
             // Draw the Player
             player.Draw(spriteBatch);
