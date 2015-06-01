@@ -108,6 +108,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Model\Enemy.cs" />
+    <Compile Include="Model\Megalaser.cs" />
     <Compile Include="Model\Player.cs" />
     <Compile Include="Model\Projectile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

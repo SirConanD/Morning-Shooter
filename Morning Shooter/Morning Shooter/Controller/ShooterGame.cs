@@ -49,12 +49,14 @@ namespace Morning_Shooter.Controller
         List<Enemy> enemies;
 
         List<Projectile> projectiles;
+        List<Megalaser> megalasers;
 
         // The rate at which the enemies appear
         TimeSpan enemySpawnTime;
         TimeSpan previousSpawnTime;
 
         TimeSpan fireTime;
+        TimeSpan laserFireTime;
 
         //Number that holds the player score
         int score;
@@ -65,6 +67,7 @@ namespace Morning_Shooter.Controller
         Texture2D projectileTexture;
 
         TimeSpan previousFireTime;
+        TimeSpan previousLaserFireTime;
 
         Texture2D explosionTexture;
         List<Animation> explosions;
@@ -122,10 +125,11 @@ namespace Morning_Shooter.Controller
             random = new Random();
 
             projectiles = new List<Projectile>();
+            megalasers = new List<Megalaser>();
 
             // Set the laser to fire every quarter second
             fireTime = TimeSpan.FromSeconds(.15f);
-
+            laserFireTime = TimeSpan.FromMinutes(1);
             explosions = new List<Animation>();
 
             //Set player's score to zero
@@ -243,6 +247,8 @@ namespace Morning_Shooter.Controller
             // Update the projectiles
             UpdateProjectiles();
 
+            UpdateMegalasers();
+
             // Update the explosions
             UpdateExplosions(gameTime);
 
@@ -254,6 +260,13 @@ namespace Morning_Shooter.Controller
             Projectile projectile = new Projectile();
             projectile.Initialize(GraphicsDevice.Viewport, projectileTexture, position);
             projectiles.Add(projectile);
+        }
+
+        private void AddMegalaser(Vector2 position)
+        {
+            Megalaser projectile = new Megalaser();
+            projectile.Initialize(GraphicsDevice.Viewport, projectileTexture, position);
+            megalasers.Add(projectile);
         }
 
         private void UpdateCollision()
@@ -317,6 +330,30 @@ namespace Morning_Shooter.Controller
                     }
                 }
             }
+
+            for (int i = 0; i < megalasers.Count; i++)
+            {
+                for (int j = 0; j < enemies.Count; j++)
+                {
+                    // Create the rectangles we need to determine if we collided with each other
+                    rectangle1 = new Rectangle((int)megalasers[i].Position.X -
+                    megalasers[i].Width / 2, (int)megalasers[i].Position.Y -
+                    megalasers[i].Height / 2, megalasers[i].Width, megalasers[i].Height);
+
+                    rectangle2 = new Rectangle((int)enemies[j].Position.X - enemies[j].Width / 2,
+                    (int)enemies[j].Position.Y - enemies[j].Height / 2,
+                    enemies[j].Width, enemies[j].Height);
+
+                    // Determine if the two objects collided with each other
+                    if (rectangle1.Intersects(rectangle2))
+                    {
+                        enemies[j].Health -= megalasers[i].Damage;
+                        megalasers[i].Active = false;
+                    }
+                }
+            }
+
+
         }
 
         private void UpdatePlayer(GameTime gameTime)
@@ -365,6 +402,18 @@ namespace Morning_Shooter.Controller
 
                 // Add the projectile, but add it to the front and center of the player
                 AddProjectile(player.Position + new Vector2(player.Width / 2, 0));
+
+                // Play the laser sound
+                laserSound.Play();
+            }
+
+            if (gameTime.TotalGameTime - previousLaserFireTime > laserFireTime)
+            {
+                // Reset our current time
+                previousLaserFireTime = gameTime.TotalGameTime;
+
+                // Add the projectile, but add it to the front and center of the player
+                AddMegalaser(player.Position + new Vector2(player.Width / 2, 0));
 
                 // Play the laser sound
                 laserSound.Play();
@@ -448,6 +497,20 @@ namespace Morning_Shooter.Controller
             }
         }
 
+        private void UpdateMegalasers()
+        {
+            // Update the Projectiles
+            for (int i = megalasers.Count - 1; i >= 0; i--)
+            {
+                megalasers[i].Update();
+
+                if (megalasers[i].Active == false)
+                {
+                    megalasers.RemoveAt(i);
+                }
+            }
+        }
+
         private void UpdateExplosions(GameTime gameTime)
         {
             for (int i = explosions.Count - 1; i >= 0; i--)
@@ -489,6 +552,11 @@ namespace Morning_Shooter.Controller
             for (int i = 0; i < projectiles.Count; i++)
             {
                 projectiles[i].Draw(spriteBatch);
+            }
+
+            for (int i = 0; i < megalasers.Count; i++)
+            {
+                megalasers[i].Draw(spriteBatch);
             }
 
             // Draw the explosions
